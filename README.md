@@ -26,7 +26,7 @@ src/app/
 
 ## Environment
 
-Your `.env` should include:
+Create `.env.local` (recommended) or `.env` in the project root with:
 
 ```env
 App_user_gamil=yourgmail@gmail.com
@@ -39,7 +39,10 @@ Optional:
 ```env
 MAIL_TO=receiver@gmail.com
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+REMINDER_TIMEZONE=Asia/Dhaka
 ```
+
+Set `REMINDER_TIMEZONE` if the server runs in a different timezone than you (for example UTC hosting with Bangladesh time).
 
 If `MAIL_TO` is not set, reminders are sent to `App_user_gamil`.
 
@@ -76,4 +79,43 @@ Optional standalone reminder worker:
 npm run worker
 ```
 
-The app also starts a reminder scheduler when the website/API is running.
+The app starts a local reminder scheduler when running on your machine (`npm run dev` / `npm start`).
+
+## Deploy on Vercel
+
+Vercel is serverless — `setInterval` does not keep running in the background. Reminders are sent when something calls `/api/reminders/tick` every minute.
+
+**Hobby (free) plan:** Vercel blocks per-minute cron (`* * * * *`). Do **not** add that to `vercel.json` on Hobby — `vercel --prod` will fail. Use the free external cron option below instead.
+
+**Pro plan:** rename `vercel.cron.pro.example.json` to `vercel.json` to use built-in Vercel cron.
+
+### Vercel environment variables
+
+Add these in the Vercel project settings:
+
+```env
+App_user_gamil=yourgmail@gmail.com
+App_pass=your_gmail_app_password
+DATABASE_URL=mongodb+srv://...
+MAIL_TO=receiver@gmail.com
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+REMINDER_TIMEZONE=Asia/Dhaka
+CRON_SECRET=any-long-random-string
+```
+
+**Important**
+
+- `REMINDER_TIMEZONE` — Vercel servers use UTC. Set this to your local timezone (e.g. `Asia/Dhaka` for Bangladesh), otherwise reminders fire at the wrong time.
+- `CRON_SECRET` — protects the cron endpoint. Vercel may auto-add this after the first deploy with `vercel.json` crons.
+- MongoDB Atlas → Network Access → allow `0.0.0.0/0` so Vercel can connect.
+
+### Free cron on Hobby plan (recommended)
+
+Use [cron-job.org](https://cron-job.org) (or similar) to call your app every minute:
+
+- **URL:** `https://your-app.vercel.app/api/reminders/tick`
+- **Method:** `GET`
+- **Header:** `Authorization: Bearer YOUR_CRON_SECRET`
+- **Interval:** every 1 minute
+
+After changing env vars, redeploy the project.

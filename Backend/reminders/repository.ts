@@ -24,14 +24,25 @@ export class ReminderRepository {
     const collection = await getRoutineTaskCollection();
     const safePatch = { ...patch };
     delete safePatch.id;
+
+    const update: {
+      $set: Record<string, unknown>;
+      $unset?: Record<string, "">;
+    } = {
+      $set: {
+        ...safePatch,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+
+    if ("lastNotifiedDate" in safePatch && safePatch.lastNotifiedDate === undefined) {
+      delete update.$set.lastNotifiedDate;
+      update.$unset = { lastNotifiedDate: "" };
+    }
+
     const result = await collection.findOneAndUpdate(
       { _id: id },
-      {
-        $set: {
-          ...safePatch,
-          updatedAt: new Date().toISOString(),
-        },
-      },
+      update,
       { returnDocument: "after" },
     );
 

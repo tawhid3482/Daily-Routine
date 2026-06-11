@@ -1,5 +1,6 @@
 import { getMailer } from "@/Backend/mail/mailer";
 import { getReminderRepository } from "./repository";
+import { isTaskDue, toLocalDateKey, toLocalTimeKey } from "./time";
 import type {
   CreateTaskInput,
   ReminderRunResult,
@@ -28,7 +29,14 @@ export class ReminderService {
   }
 
   async updateTask(id: string, input: UpdateTaskInput) {
-    return this.repository.update(id, validateUpdateTask(input));
+    const update = validateUpdateTask(input);
+    if (update.time !== undefined) {
+      return this.repository.update(id, {
+        ...update,
+        lastNotifiedDate: undefined,
+      });
+    }
+    return this.repository.update(id, update);
   }
 
   async deleteTask(id: string) {
@@ -42,7 +50,7 @@ export class ReminderService {
     const dueTasks = tasks.filter(
       (task) =>
         task.active &&
-        task.time <= currentTime &&
+        isTaskDue(task.time, currentTime) &&
         task.lastNotifiedDate !== today,
     );
 
@@ -59,19 +67,6 @@ export class ReminderService {
       dueTaskIds: dueTasks.map((task) => task.id),
     };
   }
-}
-
-function toLocalDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function toLocalTimeKey(date: Date) {
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  return `${hour}:${minute}`;
 }
 
 let service: ReminderService | undefined;

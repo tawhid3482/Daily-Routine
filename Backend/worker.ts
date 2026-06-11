@@ -1,4 +1,8 @@
-import "dotenv/config";
+import { config } from "dotenv";
+
+config({ path: ".env" });
+config({ path: ".env.local", override: true });
+
 import { getReminderService } from "@/Backend/reminders/service";
 
 async function run() {

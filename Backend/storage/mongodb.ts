@@ -1,5 +1,6 @@
 import { MongoClient, type Collection } from "mongodb";
 import type { RoutineTask } from "@/Backend/reminders/types";
+import { ensureMongoDnsResolution } from "./dns";
 
 const databaseName = "daily_routine";
 const collectionName = "routine_tasks";
@@ -21,13 +22,27 @@ export async function getRoutineTaskCollection(): Promise<
     throw new Error("DATABASE_URL is missing in .env");
   }
 
-  globalThis.__dailyRoutineMongoClientPromise ??= new MongoClient(databaseUrl, {
-    serverSelectionTimeoutMS: 8_000,
-  }).connect();
-  const client = await globalThis.__dailyRoutineMongoClientPromise;
+  ensureMongoDnsResolution();
+
+  const client = await getMongoClient(databaseUrl);
   return client
     .db(getDatabaseName(databaseUrl))
     .collection<RoutineTaskDocument>(collectionName);
+}
+
+async function getMongoClient(databaseUrl: string) {
+  if (!globalThis.__dailyRoutineMongoClientPromise) {
+    globalThis.__dailyRoutineMongoClientPromise = new MongoClient(databaseUrl, {
+      serverSelectionTimeoutMS: 8_000,
+    })
+      .connect()
+      .catch((error) => {
+        globalThis.__dailyRoutineMongoClientPromise = undefined;
+        throw error;
+      });
+  }
+
+  return globalThis.__dailyRoutineMongoClientPromise;
 }
 
 function getDatabaseName(databaseUrl: string) {
